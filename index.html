@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>J.S.O.C. Navigation HUD - Final</title>
+<style>
+  :root{
+    --bg:#020204;
+    --surface:#0b0d0f;
+    --neon:#00ff41;
+    --neon-dim:#1a6f32;
+    --danger:#ff3b3b;
+    --muted:#7b7f83;
+    --glass: rgba(255,255,255,0.02);
+    --radius:12px;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    --shadow: 0 8px 28px rgba(0,0,0,0.7);
+    --safe-area-inset-top: env(safe-area-inset-top);
+    --safe-area-inset-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* base - FIX for iPhone Dynamic Island */
+  html,body{
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(180deg,#020204 0%, #07080a 100%);
+    font-family: var(--sans);
+    color: #dfffe0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow: hidden;
+  }
+  
+  body {
+    padding: var(--safe-area-inset-top) 0 var(--safe-area-inset-bottom) 0;
+    box-sizing: border-box;
+  }
+  
+  *{box-sizing:border-box}
+
+  /* app container */
+  .app{
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 0 12px;
+  }
+
+  /* header - FIXED for Dynamic Island */
+  .header{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06));
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.03);
+    box-shadow: var(--shadow);
+    flex-shrink: 0;
+    margin-top: calc(var(--safe-area-inset-top) + 4px);
+  }
+  
+  .brand{
+    display: flex;
+    align-items: center;
+    gap: 8px
+  }
+  
+  .logo{
+    font-weight: 900;
+    letter-spacing: 2px;
+    font-size: 16px;
+    color: var(--neon);
+    text-shadow: 0 0 10px rgba(0,255,65,0.1)
+  }
+  
+  .subtitle{
+    font-size: 11px;
+    color: var(--muted)
+  }
+  
+  .gps-status{
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted)
+  }
+  
+  .dot{
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #222;
+    border: 2px solid rgba(255,255,255,0.03)
+  }
+  
+  .dot.ok{
+    background: var(--neon);
+    box-shadow: 0 0 12px rgba(0,255,65,0.12)
+  }
+  
+  .dot.warn{
+    background: var(--danger);
+    box-shadow: 0 0 10px rgba(255,59,59,0.12)
+  }
+
+  /* top-right controls cluster */
+  .top-controls{
+    display: flex;
+    align-items: center;
+    gap: 8px
+  }
+  
+  /* switch style compass toggle */
+  .switch{
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px
+  }
+  
+  .switch input{
+    opacity: 0;
+    width: 0;
+    height: 0
+  }
+  
+  .slider{
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.22));
+    transition: .2s;
+    border-radius: 999px;
+    border: 1px solid rgba(0,255,65,0.06)
+  }
+  
+  .slider:before{
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
+    background: var(--neon);
+    transition: .2s;
+    border-radius: 50%
+  }
+  
+  input:checked + .slider:before{
+    transform: translateX(18px);
+    background: var(--neon)
+  }
+  
+  .compass-toggle{
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted)
+  }
+
+  /* main layout */
+  .main{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: hidden;
+    min-height: 0;
+    padding-bottom: calc(var(--safe-area-inset-bottom) + 8px);
+  }
+  
+  .panel{
+    background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.38));
+    border-radius: 10px;
+    padding: 10px;
+    border: 1px solid rgba(255,255,255,0.02);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  /* responsive two-column for large screens */
+  .cols{
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: 100%;
+    flex: 1;
+    min-height: 0;
+  }
+  
+  @media (orientation: landscape) {
+    .cols{
+      flex-direction: row
+    }
+    .left{
+      flex: 0 0 min(50vh, 50vw);
+      min-width: 0;
+    }
+    .right{
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-width: 0;
+    }
+    .compass-wrap{
+      max-height: min(50vh, 50vw);
+    }
+  }
+
+  @media (min-width: 768px) and (orientation: portrait) {
+    .cols{
+      flex-direction: row
+    }
+    .left{
+      flex: 0 0 50%;
+      min-width: 0;
+    }
+    .right{
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-width: 0;
+    }
+  }
+
+  /* compass area */
+  .compass-wrap{
+    width: 100%;
+    max-width: 100%;
+    aspect-ratio: 1;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    position: relative;
+    overflow: hidden;
+    border: 2px solid rgba(0,255,65,0.06);
+    background: radial-gradient(circle at 30% 20%, rgba(0,255,65,0.02), transparent 10%), linear-gradient(180deg, rgba(0,0,0,0.45), rgba(255,255,255,0.01));
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    flex-shrink: 0;
+  }
+  
+  .compass-inner{
+    width: 92%;
+    height: 92%;
+    border-radius: 50%;
+    position: relative;
+    display: block
+  }
+
+  /* degree marks container (SVG drawn by script) */
+  #ticks{
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    display: block
+  }
+
+  /* needles are HTML layers so rotation is easy */
+  .needle-n{
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 4px;
+    height: 46%;
+    transform-origin: center bottom;
+    background: linear-gradient(180deg,var(--neon),rgba(0,255,65,0.6));
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,255,65,0.08);
+    transform: translate(-50%,-100%) rotate(0deg);
+    transition: transform 120ms linear
+  }
+  
+  .needle-target{
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 6px;
+    height: 40%;
+    transform-origin: center bottom;
+    background: linear-gradient(180deg,var(--danger),rgba(255,59,59,0.6));
+    border-radius: 4px;
+    transform: translate(-50%,-100%) rotate(0deg);
+    opacity: 0;
+    transition: opacity 160ms
+  }
+  
+  .needle-target.active{
+    opacity: 1
+  }
+  
+  .compass-center{
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: linear-gradient(180deg,#031004, #153b26);
+    border: 2px solid var(--neon);
+    transform: translate(-50%,-50%);
+    box-shadow: 0 0 12px rgba(0,255,65,0.06)
+  }
+  
+  .bearing-box{
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, rgba(0,0,0,0.45), rgba(255,255,255,0.01));
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(0,255,65,0.06);
+    font-family: var(--mono);
+    font-weight: 800;
+    color: var(--neon);
+    font-size: 14px
+  }
+
+  /* info stats */
+  .info-row{
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  
+  .stat{
+    background: rgba(0,0,0,0.45);
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.02);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--neon);
+    min-width: 90px;
+    text-align: center;
+    flex: 1;
+  }
+  
+  .stat .label{
+    font-size: 9px;
+    color: var(--muted);
+    font-weight: 700;
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  /* waypoint grid */
+  .details-grid{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  
+  .card{
+    background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.36));
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.02);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .card h4{
+    margin: 0;
+    color: var(--neon);
+    font-family: var(--mono);
+    letter-spacing: 0.5px;
+    font-size: 12px;
+  }
+  
+  .card p{
+    margin: 0;
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  /* buttons */
+  .btn{
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.36));
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.03);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--neon);
+    font-weight: 800;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  
+  .btn.secondary{
+    color: var(--muted);
+    border: 1px solid rgba(255,255,255,0.02)
+  }
+  
+  .btn:active{
+    transform: translateY(1px)
+  }
+
+  /* modal */
+  .modal{
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    background: rgba(0,0,0,0.8);
+    padding: 20px;
+  }
+  
+  .modal.active{
+    display: flex
+  }
+  
+  .modal-card{
+    width: 100%;
+    max-width: 500px;
+    background: var(--surface);
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.03);
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  /* iPhone specific fixes */
+  @supports (-webkit-touch-callout: none) {
+    .app{
+      height: -webkit-fill-available;
+    }
+  }
+
+  /* Dynamic Island specific fixes */
+  @supports (padding: max(0px)) {
+    .header {
+      margin-top: max(12px, var(--safe-area-inset-top));
+    }
+    .main {
+      padding-bottom: max(8px, var(--safe-area-inset-bottom));
+    }
+  }
+
+  /* Small phone fixes */
+  @media (max-width: 350px) {
+    .header{
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .top-controls{
+      justify-content: flex-end;
+      flex: 1;
+    }
+    .brand{
+      flex: 1;
+    }
+    .stat{
+      min-width: 70px;
+      font-size: 10px;
+    }
+    .stat .label{
+      font-size: 8px;
+    }
+  }
+
+  /* Landscape phone fixes */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .app{
+      gap: 8px;
+      padding: 0 8px;
+    }
+    .header{
+      padding: 6px 10px;
+      margin-top: max(8px, var(--safe-area-inset-top));
+    }
+    .main{
+      gap: 8px;
+      padding-bottom: max(4px, var(--safe-area-inset-bottom));
+    }
+    .panel{
+      padding: 8px;
+      gap: 8px;
+    }
+    .compass-wrap{
+      max-height: min(40vh, 40vw);
+    }
+    .info-row{
+      margin-top: 4px;
+    }
+  }
+
+  /* Fix for white bar at bottom */
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--safe-area-inset-bottom);
+    background: #020204;
+    z-index: 9999;
+  }
+</style>
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="header">
+      <div class="brand">
+        <div class="logo">J.S.O.C.</div>
+        <div class="subtitle">Softair Galatina Navigation HUD</div>
+      </div>
+
+      <div class="top-controls">
+        <div class="gps-status" id="gpsStatus">
+          <div class="dot" id="gpsDot"></div>
+          <div id="gpsText" class="subtitle">Acquisizione GPS...</div>
+        </div>
+
+        <!-- COMPASS TOGGLE SWITCH (top-right) - user requested -->
+        <div class="compass-toggle">
+          <label for="compassToggle" style="font-family:var(--mono);font-weight:800;color:var(--muted)">Bussola</label>
+          <label class="switch">
+            <input type="checkbox" id="compassToggle" aria-label="Toggle bussola" />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="cols">
+        <div class="left panel">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;flex:1;min-height:0;">
+            <div class="compass-wrap" id="compassWrap" role="img" aria-label="Bussola digitale">
+              <div class="compass-inner" id="compassInner">
+                <!-- SVG dial for markings (script will fill) -->
+                <svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block">
+                  <defs>
+                    <radialGradient id="g1" cx="30%" cy="20%">
+                      <stop offset="0%" stop-color="#06280f" stop-opacity="0.45"/>
+                      <stop offset="60%" stop-color="#021006" stop-opacity="0.25"/>
+                      <stop offset="100%" stop-color="#000" stop-opacity="0.0"/>
+                    </radialGradient>
+                  </defs>
+                  <circle cx="150" cy="150" r="140" fill="url(#g1)" stroke="rgba(0,255,65,0.06)" stroke-width="2"/>
+                  <g id="cardinals" transform="translate(150,150)">
+                    <text x="0" y="-120" text-anchor="middle" font-family="var(--mono)" font-size="18" fill="#00ff7a">N</text>
+                    <text x="0" y="136" text-anchor="middle" font-family="var(--mono)" font-size="18" fill="#6b6f73">S</text>
+                    <text x="136" y="6" text-anchor="middle" font-family="var(--mono)" font-size="18" fill="#6b6f73">E</text>
+                    <text x="-136" y="6" text-anchor="middle" font-family="var(--mono)" font-size="18" fill="#6b6f73">W</text>
+                  </g>
+                  <g id="svgTicks" transform="translate(150,150)"></g>
+                </svg>
+
+                <!-- HTML needles (rotated in JS) -->
+                <div id="ticks"></div>
+                <div class="needle-n" id="needleN" aria-hidden="true"></div>
+                <div class="needle-target" id="needleTarget" aria-hidden="true"></div>
+                <div class="compass-center" aria-hidden="true"></div>
+                <div class="bearing-box" id="bearingBox">---°</div>
+              </div>
+            </div>
+
+            <div class="info-row" id="infoRow">
+              <div class="stat"><span class="label">UTM / LatLon</span><div id="utmText">Acquisizione...</div></div>
+              <div class="stat"><span class="label">Alt (m)</span><div id="altText">---</div></div>
+              <div class="stat"><span class="label">Acc (m)</span><div id="accText">---</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="right">
+          <section class="panel" style="flex:1;min-height:0;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+              <h3 style="margin:0;color:var(--neon);font-family:var(--mono);font-size:14px;">Waypoint Target</h3>
+              <button class="btn secondary" id="openLoad" style="padding:6px 10px;font-size:12px;">📂 Carica</button>
+            </div>
+
+            <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;margin-top:8px;">
+              <select id="waypointSelect" style="flex:1;padding:6px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:var(--neon);font-family:var(--mono);font-size:12px;"><option value="">Seleziona waypoint...</option></select>
+            </div>
+
+            <div class="details-grid" style="flex:1;min-height:0;overflow:hidden;">
+              <div class="card">
+                <h4 id="tName">---</h4>
+                <p id="tCoords">---</p>
+              </div>
+              <div class="card">
+                <h4 id="tDist">Distanza</h4>
+                <p id="tDistVal">-- m</p>
+              </div>
+              <div class="card">
+                <h4>Direzione</h4>
+                <p id="tBearing">--°</p>
+              </div>
+              <div class="card">
+                <h4>Dislivello</h4>
+                <p id="tElev">-- m</p>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <!-- modal -->
+    <div class="modal" id="modal">
+      <div class="modal-card" role="dialog" aria-modal="true">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+          <div style="font-weight:900;color:var(--neon);font-family:var(--mono);font-size:14px;">Carica Waypoints</div>
+          <button class="btn secondary" id="closeModal" style="padding:6px 10px;font-size:12px;">Chiudi</button>
+        </div>
+        <div style="margin-top:12px;flex:1;overflow-y:auto;">
+          <div style="display:flex;gap:6px;margin-bottom:8px;flex-shrink:0;">
+            <button class="tab active" data-tab="file" style="padding:6px 8px;border-radius:6px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.02);color:var(--neon);font-size:12px;">File CSV</button>
+            <button class="tab" data-tab="manual" style="padding:6px 8px;border-radius:6px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.02);color:var(--muted);font-size:12px;">Manuale</button>
+          </div>
+          <div id="fileTab">
+            <input type="file" id="csvFile" accept=".csv,.txt" style="width:100%;padding:6px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:var(--neon);font-size:12px;" />
+            <div style="margin-top:8px;color:var(--muted);font-size:11px;">Formato accettato: Nome,lat,lon,alt  oppure Nome,Zone,Easting,Northing,Alt</div>
+          </div>
+          <div id="manualTab" style="display:none;margin-top:8px;">
+            <form id="manualForm" onsubmit="return false" style="display:flex;flex-direction:column;gap:6px;">
+              <input id="mName" placeholder="Nome" style="padding:6px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:var(--neon);font-size:12px;" />
+              <div style="display:flex;gap:6px;">
+                <input id="mLat" placeholder="Latitudine" style="flex:1;padding:6px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:var(--neon);font-size:12px;" />
+                <input id="mLon" placeholder="Longitudine" style="flex:1;padding:6px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:var(--neon);font-size:12px;" />
+              </div>
+              <input id="mAlt" placeholder="Altitudine (m)" style="padding:6px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:var(--neon);font-size:12px;" />
+              <div style="display:flex;gap:6px;">
+                <button class="btn" id="addManual" style="padding:6px 10px;font-size:12px;">Aggiungi waypoint</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ... (il resto dello JavaScript rimane identico al precedente)
+(function(){
+  // DOM refs
+  const gpsDot = document.getElementById('gpsDot');
+  const gpsText = document.getElementById('gpsText');
+  const compassToggle = document.getElementById('compassToggle');
+  const needleN = document.getElementById('needleN');
+  const needleTarget = document.getElementById('needleTarget');
+  const bearingBox = document.getElementById('bearingBox');
+  const utmText = document.getElementById('utmText');
+  const altText = document.getElementById('altText');
+  const accText = document.getElementById('accText');
+  const waypointSelect = document.getElementById('waypointSelect');
+  const tName = document.getElementById('tName');
+  const tCoords = document.getElementById('tCoords');
+  const tDistVal = document.getElementById('tDistVal');
+  const tBearing = document.getElementById('tBearing');
+  const tElev = document.getElementById('tElev');
+  const openLoad = document.getElementById('openLoad');
+  const modal = document.getElementById('modal');
+  const closeModal = document.getElementById('closeModal');
+  const csvFile = document.getElementById('csvFile');
+  const addManual = document.getElementById('addManual');
+
+  // state
+  let watchId = null;
+  let currentPos = null;
+  let waypoints = [];
+  let target = null;
+
+  // compass state & smoothing
+  let haveOrientation = ('DeviceOrientationEvent' in window);
+  let permissionGranted = false;
+  let deviceOrientationListening = false;
+  let rawHeading = null;
+  let smoothHeading = null;
+  let displayHeading = null;
+  let smoothingAlpha = 0.15;
+  let rafId = null;
+
+  // draw tick marks
+  (function drawDial(){
+    const svgTicks = document.getElementById('svgTicks');
+    if(svgTicks){
+      for(let d=0; d<360; d+=30){
+        const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+        const r = 120;
+        const rad = (d-90) * Math.PI/180;
+        const x = Math.cos(rad) * r;
+        const y = Math.sin(rad) * r;
+        text.setAttribute('x', x);
+        text.setAttribute('y', y);
+        text.setAttribute('text-anchor','middle');
+        text.setAttribute('font-family','"'+getComputedStyle(document.documentElement).getPropertyValue('--mono').trim()+'"');
+        text.setAttribute('font-size','11');
+        text.setAttribute('fill', d===0 ? '#00ff7a' : '#7b7f83');
+        text.textContent = d + '°';
+        svgTicks.appendChild(text);
+      }
+    }
+  })();
+
+  // helper: get screen orientation angle
+  function getScreenAngle(){
+    const so = (screen.orientation && screen.orientation.angle) || screen.mozOrientation || screen.msOrientation;
+    if(typeof so === 'number') return so;
+    const wo = typeof window.orientation === 'number' ? window.orientation : 0;
+    return wo || 0;
+  }
+
+  // robust heading extraction from DeviceOrientation event
+  function extractHeading(e){
+    if(typeof e.webkitCompassHeading === 'number' && !isNaN(e.webkitCompassHeading)){
+      return (e.webkitCompassHeading + 360) % 360;
+    }
+
+    if(typeof e.alpha === 'number' && !isNaN(e.alpha)){
+      const screenAngle = getScreenAngle();
+      const heading = (360 - e.alpha + screenAngle) % 360;
+      return (heading + 360) % 360;
+    }
+
+    return null;
+  }
+
+  // Circular EMA smoothing for headings
+  function circularEMA(prev, current, alpha){
+    if(prev === null || prev === undefined) return current;
+    const toRad = Math.PI/180;
+    const xPrev = Math.cos(prev*toRad), yPrev = Math.sin(prev*toRad);
+    const xCur  = Math.cos(current*toRad), yCur  = Math.sin(current*toRad);
+    const x = (1-alpha)*xPrev + alpha*xCur;
+    const y = (1-alpha)*yPrev + alpha*yCur;
+    const ang = Math.atan2(y,x) * 180 / Math.PI;
+    return (ang + 360) % 360;
+  }
+
+  // compute shortest angular difference
+  function angleDiff(a,b){
+    let d = (b - a + 540) % 360 - 180;
+    return d;
+  }
+
+  // render loop
+  function renderLoop(){
+    rafId = window.requestAnimationFrame(renderLoop);
+
+    if(smoothHeading === null) return;
+
+    if(displayHeading === null){
+      displayHeading = smoothHeading;
+    } else {
+      const diff = angleDiff(displayHeading, smoothHeading);
+      const step = 0.25;
+      displayHeading = (displayHeading + diff * step + 360) % 360;
+    }
+
+    needleN.style.transform = `translate(-50%,-100%) rotate(${displayHeading}deg)`;
+    bearingBox.textContent = `${Math.round(displayHeading)}°`;
+
+    if(target && currentPos){
+      const b = computeBearing(currentPos.coords.latitude, currentPos.coords.longitude, target.lat, target.lon);
+      needleTarget.style.transform = `translate(-50%,-100%) rotate(${b}deg)`;
+      needleTarget.classList.add('active');
+      tBearing.textContent = `${Math.round(b)}°`;
+    }
+  }
+
+  // orientation event handler
+  function handleOrientationEvent(e){
+    const h = extractHeading(e);
+    if(h === null) return;
+    rawHeading = h;
+    smoothHeading = circularEMA(smoothHeading, rawHeading, smoothingAlpha);
+  }
+
+  // start listening to orientation
+  function startOrientationListening(){
+    if(deviceOrientationListening) return true;
+    if(!haveOrientation) return false;
+
+    window.addEventListener('deviceorientationabsolute', handleOrientationEvent, true);
+    window.addEventListener('deviceorientation', handleOrientationEvent, true);
+    deviceOrientationListening = true;
+
+    if(!rafId) renderLoop();
+    return true;
+  }
+
+  function stopOrientationListening(){
+    window.removeEventListener('deviceorientationabsolute', handleOrientationEvent, true);
+    window.removeEventListener('deviceorientation', handleOrientationEvent, true);
+    deviceOrientationListening = false;
+    if(rafId){ window.cancelAnimationFrame(rafId); rafId = null; }
+    smoothHeading = null; rawHeading = null; displayHeading = null;
+    needleN.style.transform = `translate(-50%,-100%) rotate(0deg)`;
+    bearingBox.textContent = '---°';
+    needleTarget.classList.remove('active');
+  }
+
+  // handle permission flow for iOS
+  async function requestIOSPermission(){
+    if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+      try{
+        const res = await DeviceOrientationEvent.requestPermission();
+        if(res === 'granted'){
+          permissionGranted = true;
+          startOrientationListening();
+          return true;
+        } else {
+          permissionGranted = false;
+          alert('Permesso bussola negato. Puoi riattivarlo nelle impostazioni del browser.');
+          return false;
+        }
+      }catch(err){
+        console.warn('requestPermission error', err);
+        alert('Impossibile ottenere permesso bussola (errore).');
+        return false;
+      }
+    } else {
+      permissionGranted = true;
+      startOrientationListening();
+      return true;
+    }
+  }
+
+  // compass toggle
+  compassToggle.addEventListener('change', async (e)=>{
+    if(e.target.checked){
+      if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function' && !permissionGranted){
+        const ok = await requestIOSPermission();
+        if(!ok){
+          compassToggle.checked = false;
+          return;
+        }
+      }
+      const started = startOrientationListening();
+      if(!started){
+        alert('Bussola non supportata su questo dispositivo.');
+        compassToggle.checked = false;
+      }
+    } else {
+      stopOrientationListening();
+    }
+  });
+
+  // GPS handling
+  function startGeolocation(){
+    if(!navigator.geolocation){
+      gpsText.textContent = 'GPS non supportato';
+      gpsDot.className = 'dot warn';
+      return;
+    }
+    gpsText.textContent = 'Acquisizione GPS...';
+    gpsDot.className = 'dot';
+    const opts = { enableHighAccuracy:true, timeout:10000, maximumAge:2000 };
+    watchId = navigator.geolocation.watchPosition(pos=>{
+      currentPos = pos;
+      gpsText.textContent = `GPS OK (±${Math.round(pos.coords.accuracy)}m)`;
+      gpsDot.className = 'dot ok';
+      utmText.textContent = `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
+      altText.textContent = (pos.coords.altitude === null ? '---' : pos.coords.altitude.toFixed(1));
+      accText.textContent = (pos.coords.accuracy ? Math.round(pos.coords.accuracy) + ' m' : '---');
+      updateNavigation();
+    }, err=>{
+      gpsText.textContent = 'Errore GPS';
+      gpsDot.className = 'dot warn';
+      console.warn('geolocation err', err);
+    }, opts);
+  }
+
+  // navigation math
+  function computeBearing(lat1,lon1,lat2,lon2){
+    const toRad = Math.PI/180, toDeg = 180/Math.PI;
+    const φ1 = lat1*toRad, φ2 = lat2*toRad;
+    const Δλ = (lon2-lon1)*toRad;
+    const y = Math.sin(Δλ)*Math.cos(φ2);
+    const x = Math.cos(φ1)*Math.sin(φ2) - Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
+    const θ = Math.atan2(y,x);
+    return (θ*toDeg + 360) % 360;
+  }
+  function haversine(lat1,lon1,lat2,lon2){
+    const R=6371000; const toRad=Math.PI/180;
+    const dLat=(lat2-lat1)*toRad; const dLon=(lon2-lon1)*toRad;
+    const a=Math.sin(dLat/2)**2 + Math.cos(lat1*toRad)*Math.cos(lat2*toRad)*Math.sin(dLon/2)**2;
+    const c=2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    return R*c;
+  }
+
+  function updateNavigation(){
+    if(!currentPos || !target) return;
+    const lat1=currentPos.coords.latitude, lon1=currentPos.coords.longitude;
+    const lat2=target.lat, lon2=target.lon;
+    const dist = haversine(lat1,lon1,lat2,lon2);
+    const bearing = computeBearing(lat1,lon1,lat2,lon2);
+    tDistVal.textContent = (dist>=1000? (dist/1000).toFixed(2)+' km' : Math.round(dist)+' m');
+    tBearing.textContent = `${Math.round(bearing)}°`;
+    const elevDiff = (typeof target.alt === 'number' && currentPos.coords.altitude !== null) ? (target.alt - currentPos.coords.altitude) : null;
+    tElev.textContent = (elevDiff === null ? '---' : (elevDiff>0? '+' : '') + elevDiff.toFixed(1) + ' m');
+  }
+
+  // Waypoint handling
+  function refreshWaypointSelect(){
+    waypointSelect.innerHTML = '<option value="">Seleziona waypoint...</option>';
+    waypoints.forEach((w,i)=>{
+      const o = document.createElement('option');
+      o.value = i;
+      o.textContent = `${w.name} (${w.lat.toFixed(4)},${w.lon.toFixed(4)})`;
+      waypointSelect.appendChild(o);
+    });
+  }
+  waypointSelect.addEventListener('change',(e)=>{
+    const idx = e.target.value;
+    if(idx === ''){ target = null; tName.textContent='---'; tCoords.textContent='---'; tDistVal.textContent='-- m'; return; }
+    target = waypoints[parseInt(idx,10)];
+    tName.textContent = target.name;
+    tCoords.textContent = `${target.lat.toFixed(5)}, ${target.lon.toFixed(5)}`;
+    updateNavigation();
+  });
+
+  // modal & CSV parsing
+  openLoad.addEventListener('click', ()=>{ modal.classList.add('active'); });
+  closeModal.addEventListener('click', ()=>{ modal.classList.remove('active'); });
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.addEventListener('click', e=>{
+      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+      e.target.classList.add('active');
+      document.getElementById('fileTab').style.display = e.target.dataset.tab === 'file' ? 'block' : 'none';
+      document.getElementById('manualTab').style.display = e.target.dataset.tab === 'manual' ? 'block' : 'none';
+    });
+  });
+
+  csvFile.addEventListener('change', (ev)=>{
+    const f = ev.target.files && ev.target.files[0];
+    if(!f) return;
+    const reader = new FileReader();
+    reader.onload = function(){ parseCSV(reader.result); modal.classList.remove('active'); };
+    reader.readAsText(f);
+  });
+
+  function parseCSV(txt){
+    const lines = txt.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+    let added = 0;
+    lines.forEach(line=>{
+      const cols = line.split(',').map(c=>c.trim());
+      if(cols.length >= 3){
+        let name, lat, lon, alt;
+        if(cols.length >= 4 && isNaN(cols[1]) && !isNaN(cols[2]) && !isNaN(cols[3])){
+          name = cols[0];
+          return;
+        } else {
+          name = cols[0];
+          lat = parseFloat(cols[1]);
+          lon = parseFloat(cols[2]);
+          alt = cols[3] ? parseFloat(cols[3]) : 0;
+        }
+        if(!isNaN(lat) && !isNaN(lon)){
+          waypoints.push({name,lat,lon,alt});
+          added++;
+        }
+      }
+    });
+    if(added > 0){
+      refreshWaypointSelect();
+      alert(`Caricati ${added} waypoint(s).`);
+    } else {
+      alert('Nessun waypoint valido trovato nel file.');
+    }
+  }
+
+  addManual.addEventListener('click', ()=>{
+    const name = document.getElementById('mName').value.trim();
+    const lat = parseFloat(document.getElementById('mLat').value);
+    const lon = parseFloat(document.getElementById('mLon').value);
+    const alt = parseFloat(document.getElementById('mAlt').value) || 0;
+    if(!name || isNaN(lat) || isNaN(lon)){ alert('Inserisci nome, latitudine e longitudine valide.'); return; }
+    waypoints.push({name,lat,lon,alt});
+    refreshWaypointSelect();
+    document.getElementById('mName').value = '';
+    document.getElementById('mLat').value = '';
+    document.getElementById('mLon').value = '';
+    document.getElementById('mAlt').value = '';
+    alert(`Waypoint "${name}" aggiunto.`);
+  });
+
+  // init
+  startGeolocation();
+
+  // Add sample waypoints for demo
+  setTimeout(()=>{
+    if(waypoints.length === 0){
+      waypoints.push({name:'Base', lat:40.2115, lon:18.1692, alt:50});
+      waypoints.push({name:'Torre', lat:40.2125, lon:18.1702, alt:60});
+      refreshWaypointSelect();
+    }
+  }, 1000);
+
+})();
+</script>
+</body>
+</html>
