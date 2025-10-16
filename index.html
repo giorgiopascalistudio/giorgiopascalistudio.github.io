@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>J.S.O.C. Navigation HUD - Final</title>
+<style>
+  :root{
+    --bg:#020204;
+    --surface:#0b0d0f;
+    --neon:#00ff41;
+    --neon-dim:#1a6f32;
+    --danger:#ff3b3b;
+    --muted:#7b7f83;
+    --glass: rgba(255,255,255,0.02);
+    --radius:12px;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    --shadow: 0 8px 28px rgba(0,0,0,0.7);
+    --app-padding: min(6vw, 36px); /* more margin as requested */
+  }
+
+  /* base */
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,#020204 0%, #07080a 100%);font-family:var(--sans);color:#dfffe0; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;}
+  body{padding:var(--app-padding);box-sizing:border-box;}
+  *{box-sizing:border-box}
+
+  /* app container */
+  .app{height:calc(100vh - (var(--app-padding) * 2));display:flex;flex-direction:column;gap:14px;align-items:stretch;}
+
+  /* header */
+  .header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06));border-radius:14px;border:1px solid rgba(255,255,255,0.03);box-shadow:var(--shadow);}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{font-weight:900;letter-spacing:3px;font-size:20px;color:var(--neon);text-shadow:0 0 10px rgba(0,255,65,0.1)}
+  .subtitle{font-size:12px;color:var(--muted)}
+  .gps-status{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+  .dot{width:12px;height:12px;border-radius:50%;background:#222;border:2px solid rgba(255,255,255,0.03)}
+  .dot.ok{background:var(--neon);box-shadow:0 0 12px rgba(0,255,65,0.12)}
+  .dot.warn{background:var(--danger);box-shadow:0 0 10px rgba(255,59,59,0.12)}
+
+  /* top-right controls cluster */
+  .top-controls{display:flex;align-items:center;gap:8px}
+  /* compact "activate" button in top-right */
+  .activate-btn{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.22));padding:8px 12px;border-radius:999px;border:1px solid rgba(0,255,65,0.06);color:var(--neon);font-weight:800;font-family:var(--mono);cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 6px 16px rgba(0,0,0,0.6)}
+  .activate-btn.disabled{opacity:0.5;cursor:not-allowed}
+  .compass-toggle{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+
+  /* main layout */
+  .main{flex:1;display:flex;flex-direction:column;gap:14px}
+  .panel{background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.38));border-radius:12px;padding:12px;border:1px solid rgba(255,255,255,0.02);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:12px}
+
+  /* responsive two-column for large screens */
+  .cols{display:flex;flex-direction:column;gap:12px}
+  @media(min-width:960px){
+    .cols{flex-direction:row}
+    .left{flex:0 0 420px}
+    .right{flex:1;display:flex;flex-direction:column;gap:12px}
+  }
+
+  /* compass area */
+  .compass-wrap{width:100%;max-width:100%;aspect-ratio:1;border-radius:999px;display:grid;place-items:center;position:relative;overflow:hidden;border:2px solid rgba(0,255,65,0.06);background:radial-gradient(circle at 30% 20%, rgba(0,255,65,0.02), transparent 10%), linear-gradient(180deg, rgba(0,0,0,0.45), rgba(255,255,255,0.01));box-shadow:0 10px 30px rgba(0,0,0,0.8)}
+  .compass-inner{width:92%;height:92%;border-radius:50%;position:relative;display:block}
+
+  /* degree marks container (SVG drawn by script) */
+  #ticks{position:absolute;inset:0;pointer-events:none;display:block}
+
+  /* needles are HTML layers so rotation is easy */
+  .needle-n{position:absolute;left:50%;top:50%;width:6px;height:46%;transform-origin:center 85%;background:linear-gradient(180deg,var(--neon),rgba(0,255,65,0.6));border-radius:6px;box-shadow:0 2px 8px rgba(0,255,65,0.08);transform:translate(-50%,-80%) rotate(0deg);transition:transform 120ms linear}
+  .needle-target{position:absolute;left:50%;top:50%;width:8px;height:40%;transform-origin:center 85%;background:linear-gradient(180deg,var(--danger),rgba(255,59,59,0.6));border-radius:6px;transform:translate(-50%,-75%) rotate(0deg);opacity:0;transition:opacity 160ms}
+  .needle-target.active{opacity:1}
+  .compass-center{position:absolute;left:50%;top:50%;width:18px;height:18px;border-radius:50%;background:linear-gradient(180deg,#031004, #153b26);border:2px solid var(--neon);transform:translate(-50%,-50%);box-shadow:0 0 12px rgba(0,255,65,0.06)}
+  .bearing-box{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:linear-gradient(180deg, rgba(0,0,0,0.45), rgba(255,255,255,0.01));padding:8px 12px;border-radius:10px;border:1px solid rgba(0,255,65,0.06);font-family:var(--mono);font-weight:800;color:var(--neon);font-size:18px}
+
+  /* info stats */
+  .info-row{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap}
+  .stat{background:rgba(0,0,0,0.45);padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.02);font-family:var(--mono);font-size:13px;color:var(--neon);min-width:110px;text-align:center}
+  .stat .label{font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:4px}
+
+  /* waypoint grid */
+  .details-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .card{background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.36));padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.02);display:flex;flex-direction:column;gap:6px}
+  .card h4{margin:0;color:var(--neon);font-family:var(--mono);letter-spacing:1px}
+  .card p{margin:0;color:var(--muted);font-size:13px}
+
+  /* controls grid */
+  .controls-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .btn{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.36));padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;color:var(--neon);font-weight:800;font-family:var(--mono)}
+  .btn.secondary{color:var(--muted);border:1px solid rgba(255,255,255,0.02)}
+  .btn:active{transform:translateY(1px)}
+
+  /* modal */
+  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:999}
+  .modal.active{display:flex}
+  .modal-card{width:92%;max-width:620px;background:var(--surface);padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,0.03)}
+
+  /* small devices */
+  @media(max-width:420px){
+    .controls-grid{grid-template-columns:repeat(2,1fr)}
+  }
+
+  /* landscape tweaks */
+  @media (orientation:landscape) and (max-height:560px){
+    .main{flex-direction:row;gap:12px}
+    .left{flex:0 0 380px}
+  }
+</style>
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="header">
+      <div class="brand">
+        <div class="logo">J.S.O.C.</div>
+        <div class="subtitle">Navigation HUD</div>
+      </div>
+
+      <div class="top-controls">
+        <div class="gps-status" id="gpsStatus">
+          <div class="dot" id="gpsDot"></div>
+          <div id="gpsText" class="subtitle">Acquisizione GPS...</div>
+        </div>
+
+        <!-- COMPASS ACTIVATE BUTTON (top-right) - user requested -->
+        <button id="activateCompassBtn" class="activate-btn" title="Attiva bussola (necessario su iOS)">
+          <span>🧭</span> <span id="activateBtnLabel">Attiva Bussola</span>
+        </button>
+
+        <div class="compass-toggle">
+          <label for="compassToggle" style="font-family:var(--mono);font-weight:800;color:var(--muted)">Bussola</label>
+          <input type="checkbox" id="compassToggle" aria-label="Toggle bussola" />
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="cols">
+        <div class="left panel left">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:12px;width:100%">
+            <div class="compass-wrap" id="compassWrap" role="img" aria-label="Bussola digitale">
+              <div class="compass-inner" id="compassInner">
+                <!-- SVG dial for markings (script will fill) -->
+                <svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block">
+                  <defs>
+                    <radialGradient id="g1" cx="30%" cy="20%">
+                      <stop offset="0%" stop-color="#06280f" stop-opacity="0.45"/>
+                      <stop offset="60%" stop-color="#021006" stop-opacity="0.25"/>
+                      <stop offset="100%" stop-color="#000" stop-opacity="0.0"/>
+                    </radialGradient>
+                  </defs>
+                  <circle cx="150" cy="150" r="140" fill="url(#g1)" stroke="rgba(0,255,65,0.06)" stroke-width="2"/>
+                  <g id="cardinals" transform="translate(150,150)">
+                    <text x="0" y="-120" text-anchor="middle" font-family="var(--mono)" font-size="18" fill="#00ff7a">N</text>
+                    <text x="0" y="136" text-anchor="middle" font-family="var(--mono)" font-size="18" fill="#6b6f73">S</text>
+                    <text x="136" y="6" text-anchor="middle" font-family="var(--mono)" font-size="18" fill="#6b6f73">E</text>
+                    <text x="-136" y="6" text-anchor="middle" font-family="var(--mono)" font-size="18" fill="#6b6f73">W</text>
+                  </g>
+                  <g id="svgTicks" transform="translate(150,150)"></g>
+                </svg>
+
+                <!-- HTML needles (rotated in JS) -->
+                <div id="ticks"></div>
+                <div class="needle-n" id="needleN" aria-hidden="true"></div>
+                <div class="needle-target" id="needleTarget" aria-hidden="true"></div>
+                <div class="compass-center" aria-hidden="true"></div>
+                <div class="bearing-box" id="bearingBox">---°</div>
+              </div>
+            </div>
+
+            <div class="info-row" id="infoRow">
+              <div class="stat"><span class="label">UTM / LatLon</span><div id="utmText">Acquisizione...</div></div>
+              <div class="stat"><span class="label">Alt (m)</span><div id="altText">---</div></div>
+              <div class="stat"><span class="label">Acc (m)</span><div id="accText">---</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="right">
+          <section class="panel">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <h3 style="margin:0;color:var(--neon);font-family:var(--mono)">Waypoint Target</h3>
+              <div style="font-size:12px;color:var(--muted)">Seleziona o carica waypoint</div>
+            </div>
+
+            <div style="display:flex;gap:8px;align-items:center">
+              <select id="waypointSelect" style="flex:1;padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:var(--neon);font-family:var(--mono)"><option value="">Seleziona waypoint...</option></select>
+              <button class="btn secondary" id="openLoad">📁</button>
+            </div>
+
+            <div class="details-grid" style="margin-top:10px">
+              <div class="card">
+                <h4 id="tName">---</h4>
+                <p id="tCoords">---</p>
+              </div>
+              <div class="card">
+                <h4 id="tDist">Distanza</h4>
+                <p id="tDistVal">-- m</p>
+              </div>
+              <div class="card">
+                <h4>Direzione</h4>
+                <p id="tBearing">--°</p>
+              </div>
+              <div class="card">
+                <h4>Dislivello</h4>
+                <p id="tElev">-- m</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel" style="margin-top:auto">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="font-weight:900;color:var(--neon);font-family:var(--mono)">Controlli</div>
+              <div style="font-size:12px;color:var(--muted)">Import / export waypoints</div>
+            </div>
+
+            <div class="controls-grid" style="margin-top:10px">
+              <button class="btn" id="loadBtn">Carica CSV</button>
+              <button class="btn secondary" id="addBtn">Aggiungi</button>
+              <button class="btn" id="exportBtn">Esporta</button>
+              <button class="btn secondary" id="unitBtn">Metri</button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <!-- modal -->
+    <div class="modal" id="modal">
+      <div class="modal-card" role="dialog" aria-modal="true">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:900;color:var(--neon);font-family:var(--mono)">Carica Waypoints</div>
+          <button class="btn secondary" id="closeModal">Chiudi</button>
+        </div>
+        <div style="margin-top:12px">
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <button class="tab active" data-tab="file" style="padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.02);color:var(--neon)">File CSV</button>
+            <button class="tab" data-tab="manual" style="padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.02);color:var(--muted)">Manuale</button>
+          </div>
+          <div id="fileTab">
+            <input type="file" id="csvFile" accept=".csv,.txt" />
+            <div style="margin-top:8px;color:var(--muted);font-size:13px">Formato accettato: Nome,lat,lon,alt  oppure Nome,Zone,Easting,Northing,Alt</div>
+          </div>
+          <div id="manualTab" style="display:none;margin-top:8px">
+            <form id="manualForm" onsubmit="return false" style="display:flex;flex-direction:column;gap:8px">
+              <input id="mName" placeholder="Nome" style="padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:var(--neon)" />
+              <div style="display:flex;gap:8px">
+                <input id="mLat" placeholder="Latitudine" style="flex:1;padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:var(--neon)" />
+                <input id="mLon" placeholder="Longitudine" style="flex:1;padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:var(--neon)" />
+              </div>
+              <input id="mAlt" placeholder="Altitudine (m)" style="padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:var(--neon)" />
+              <div style="display:flex;gap:8px">
+                <button class="btn" id="addManual">Aggiungi waypoint</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* Final J.S.O.C. - Compass + GPS + Waypoints single-file
+   Fixes included:
+   - top-right "Attiva Bussola" button (must be tapped on iOS to request permission)
+   - DeviceOrientation handling with robust logic (webkitCompassHeading / alpha / absolute)
+   - Screen orientation correction
+   - EMA circular smoothing + requestAnimationFrame rendering loop (no more jumps)
+   - Additional global padding
+   - GPS watchPosition and waypoint handling kept functional
+*/
+
+(function(){
+  // DOM refs
+  const gpsDot = document.getElementById('gpsDot');
+  const gpsText = document.getElementById('gpsText');
+  const activateCompassBtn = document.getElementById('activateCompassBtn');
+  const activateBtnLabel = document.getElementById('activateBtnLabel');
+  const compassToggle = document.getElementById('compassToggle');
+  const needleN = document.getElementById('needleN');
+  const needleTarget = document.getElementById('needleTarget');
+  const bearingBox = document.getElementById('bearingBox');
+  const utmText = document.getElementById('utmText');
+  const altText = document.getElementById('altText');
+  const accText = document.getElementById('accText');
+  const waypointSelect = document.getElementById('waypointSelect');
+  const tName = document.getElementById('tName');
+  const tCoords = document.getElementById('tCoords');
+  const tDistVal = document.getElementById('tDistVal');
+  const tBearing = document.getElementById('tBearing');
+  const tElev = document.getElementById('tElev');
+  const openLoad = document.getElementById('openLoad');
+  const modal = document.getElementById('modal');
+  const closeModal = document.getElementById('closeModal');
+  const csvFile = document.getElementById('csvFile');
+  const addManual = document.getElementById('addManual');
+
+  // state
+  let watchId = null;
+  let currentPos = null;
+  let waypoints = [];
+  let target = null;
+
+  // compass state & smoothing
+  let haveOrientation = ('DeviceOrientationEvent' in window);
+  let permissionGranted = false;
+  let deviceOrientationListening = false;
+  let rawHeading = null;        // latest raw heading in degrees
+  let smoothHeading = null;     // filtered heading (degrees)
+  let displayHeading = null;    // currently displayed heading (degrees) - used for smooth UI lerp
+  let smoothingAlpha = 0.15;    // EMA alpha (0..1). lower = smoother but more lag. 0.15 is a balanced default.
+  let rafId = null;
+
+  // draw tick marks (SVG & HTML tiny labels)
+  (function drawDial(){
+    const svgTicks = document.getElementById('svgTicks');
+    if(svgTicks){
+      for(let d=0; d<360; d+=30){
+        const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+        const r = 120;
+        const rad = (d-90) * Math.PI/180;
+        const x = Math.cos(rad) * r;
+        const y = Math.sin(rad) * r;
+        text.setAttribute('x', x);
+        text.setAttribute('y', y);
+        text.setAttribute('text-anchor','middle');
+        text.setAttribute('font-family','"'+getComputedStyle(document.documentElement).getPropertyValue('--mono').trim()+'"');
+        text.setAttribute('font-size','11');
+        text.setAttribute('fill', d===0 ? '#00ff7a' : '#7b7f83');
+        text.textContent = d + '°';
+        svgTicks.appendChild(text);
+      }
+    }
+  })();
+
+  // helper: get screen orientation angle (0/90/180/270)
+  function getScreenAngle(){
+    const so = (screen.orientation && screen.orientation.angle) || screen.mozOrientation || screen.msOrientation;
+    if(typeof so === 'number') return so;
+    // fallback to window.orientation (may be undefined)
+    const wo = typeof window.orientation === 'number' ? window.orientation : 0;
+    return wo || 0;
+  }
+
+  // robust heading extraction from DeviceOrientation event
+  function extractHeading(e){
+    // Prioritize webkitCompassHeading (iOS native heading)
+    if(typeof e.webkitCompassHeading === 'number' && !isNaN(e.webkitCompassHeading)){
+      return (e.webkitCompassHeading + 360) % 360;
+    }
+
+    // If absolute is true and alpha present, use alpha with corrections
+    if(typeof e.alpha === 'number' && !isNaN(e.alpha)){
+      // Many implementations: heading = 360 - alpha (to convert device rotation to compass heading)
+      // We'll use 360 - alpha and add screen orientation correction.
+      const screenAngle = getScreenAngle(); // degrees
+      const heading = (360 - e.alpha + screenAngle) % 360;
+      return (heading + 360) % 360;
+    }
+
+    return null;
+  }
+
+  // Circular EMA smoothing for headings (vector-based)
+  function circularEMA(prev, current, alpha){
+    if(prev === null || prev === undefined) return current;
+    const toRad = Math.PI/180;
+    const xPrev = Math.cos(prev*toRad), yPrev = Math.sin(prev*toRad);
+    const xCur  = Math.cos(current*toRad), yCur  = Math.sin(current*toRad);
+    const x = (1-alpha)*xPrev + alpha*xCur;
+    const y = (1-alpha)*yPrev + alpha*yCur;
+    const ang = Math.atan2(y,x) * 180 / Math.PI;
+    return (ang + 360) % 360;
+  }
+
+  // compute shortest angular difference (-180..180)
+  function angleDiff(a,b){
+    let d = (b - a + 540) % 360 - 180;
+    return d;
+  }
+
+  // render loop: lerp displayHeading to smoothHeading and update DOM transforms
+  function renderLoop(){
+    // request next frame
+    rafId = window.requestAnimationFrame(renderLoop);
+
+    if(smoothHeading === null) return;
+
+    if(displayHeading === null){
+      displayHeading = smoothHeading;
+    } else {
+      // lerp on circular shortest path
+      const diff = angleDiff(displayHeading, smoothHeading);
+      // smooth step factor for UI (interpolate faster than sensor smoothing)
+      const step = 0.25; // 0..1 - higher means display follows closer
+      displayHeading = (displayHeading + diff * step + 360) % 360;
+    }
+
+    // apply transform to north needle. Needle points to NORTH, so rotate by displayHeading
+    needleN.style.transform = `translate(-50%,-80%) rotate(${displayHeading}deg)`;
+    bearingBox.textContent = `${Math.round(displayHeading)}°`;
+
+    // if target exists, ensure its needle points to target bearing (absolute)
+    if(target && currentPos){
+      const b = computeBearing(currentPos.coords.latitude, currentPos.coords.longitude, target.lat, target.lon);
+      needleTarget.style.transform = `translate(-50%,-75%) rotate(${b}deg)`;
+      needleTarget.classList.add('active');
+      tBearing.textContent = `${Math.round(b)}°`;
+    }
+  }
+
+  // orientation event handler
+  function handleOrientationEvent(e){
+    const h = extractHeading(e);
+    if(h === null) return;
+    rawHeading = h;
+    // update smoothHeading via circular EMA
+    smoothHeading = circularEMA(smoothHeading, rawHeading, smoothingAlpha);
+  }
+
+  // start listening to orientation (must be called after user interaction on iOS)
+  function startOrientationListening(){
+    if(deviceOrientationListening) return true;
+    if(!haveOrientation) return false;
+
+    // on iOS we need explicit permission (handled elsewhere), on Android usually allowed
+    window.addEventListener('deviceorientationabsolute', handleOrientationEvent, true);
+    window.addEventListener('deviceorientation', handleOrientationEvent, true);
+    deviceOrientationListening = true;
+
+    // start render loop if not running
+    if(!rafId) renderLoop();
+    return true;
+  }
+
+  function stopOrientationListening(){
+    window.removeEventListener('deviceorientationabsolute', handleOrientationEvent, true);
+    window.removeEventListener('deviceorientation', handleOrientationEvent, true);
+    deviceOrientationListening = false;
+    if(rafId){ window.cancelAnimationFrame(rafId); rafId = null; }
+    smoothHeading = null; rawHeading = null; displayHeading = null;
+    needleN.style.transform = `translate(-50%,-80%) rotate(0deg)`;
+    bearingBox.textContent = '---°';
+    needleTarget.classList.remove('active');
+  }
+
+  // handle permission flow for iOS (must be inside a user gesture)
+  async function requestIOSPermission(){
+    if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+      try{
+        const res = await DeviceOrientationEvent.requestPermission();
+        if(res === 'granted'){
+          permissionGranted = true;
+          activateBtnLabel.textContent = 'Bussola pronta';
+          startOrientationListening();
+          return true;
+        } else {
+          permissionGranted = false;
+          alert('Permesso bussola negato. Puoi riattivarlo nelle impostazioni del browser.');
+          return false;
+        }
+      }catch(err){
+        console.warn('requestPermission error', err);
+        alert('Impossibile ottenere permesso bussola (errore).');
+        return false;
+      }
+    } else {
+      // Non iOS - no explicit permission needed
+      permissionGranted = true;
+      startOrientationListening();
+      return true;
+    }
+  }
+
+  // DOM: set up activate button behaviour (top-right). Keep it visible; on click request permission.
+  activateCompassBtn.addEventListener('click', async ()=>{
+    activateCompassBtn.disabled = true;
+    activateCompassBtn.classList.add('disabled');
+    activateBtnLabel.textContent = 'Richiesta permesso...';
+    const ok = await requestIOSPermission();
+    if(ok){
+      activateBtnLabel.textContent = 'Attiva (toggle)';
+      // ensure toggle is synced ON
+      compassToggle.checked = true;
+    } else {
+      activateBtnLabel.textContent = 'Attiva Bussola';
+      compassToggle.checked = false;
+    }
+    // re-enable button so user can retry if needed
+    activateCompassBtn.disabled = false;
+    activateCompassBtn.classList.remove('disabled');
+  });
+
+  // compass toggle toggles listening (also for Android)
+  compassToggle.addEventListener('change', async (e)=>{
+    if(e.target.checked){
+      // try to start; if iOS require permission first
+      if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function' && !permissionGranted){
+        // show hint to tap top-right button
+        alert('Su iPhone Safari è necessario premere prima "Attiva Bussola" (in alto a destra) per consentire l\'uso del sensore.');
+        compassToggle.checked = false;
+        return;
+      }
+      const started = startOrientationListening();
+      if(!started){
+        alert('Bussola non supportata su questo dispositivo.');
+        compassToggle.checked = false;
+      }
+    } else {
+      stopOrientationListening();
+    }
+  });
+
+  // GPS handling
+  function startGeolocation(){
+    if(!navigator.geolocation){
+      gpsText.textContent = 'GPS non supportato';
+      gpsDot.className = 'dot warn';
+      return;
+    }
+    gpsText.textContent = 'Acquisizione GPS...';
+    gpsDot.className = 'dot';
+    const opts = { enableHighAccuracy:true, timeout:10000, maximumAge:2000 };
+    watchId = navigator.geolocation.watchPosition(pos=>{
+      currentPos = pos;
+      gpsText.textContent = `GPS OK (±${Math.round(pos.coords.accuracy)}m)`;
+      gpsDot.className = 'dot ok';
+      utmText.textContent = `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
+      altText.textContent = (pos.coords.altitude === null ? '---' : pos.coords.altitude.toFixed(1));
+      accText.textContent = (pos.coords.accuracy ? Math.round(pos.coords.accuracy) + ' m' : '---');
+      updateNavigation();
+    }, err=>{
+      gpsText.textContent = 'Errore GPS';
+      gpsDot.className = 'dot warn';
+      console.warn('geolocation err', err);
+    }, opts);
+  }
+
+  // navigation math
+  function computeBearing(lat1,lon1,lat2,lon2){
+    const toRad = Math.PI/180, toDeg = 180/Math.PI;
+    const φ1 = lat1*toRad, φ2 = lat2*toRad;
+    const Δλ = (lon2-lon1)*toRad;
+    const y = Math.sin(Δλ)*Math.cos(φ2);
+    const x = Math.cos(φ1)*Math.sin(φ2) - Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
+    const θ = Math.atan2(y,x);
+    return (θ*toDeg + 360) % 360;
+  }
+  function haversine(lat1,lon1,lat2,lon2){
+    const R=6371000; const toRad=Math.PI/180;
+    const dLat=(lat2-lat1)*toRad; const dLon=(lon2-lon1)*toRad;
+    const a=Math.sin(dLat/2)**2 + Math.cos(lat1*toRad)*Math.cos(lat2*toRad)*Math.sin(dLon/2)**2;
+    const c=2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    return R*c;
+  }
+
+  function updateNavigation(){
+    if(!currentPos || !target) return;
+    const lat1=currentPos.coords.latitude, lon1=currentPos.coords.longitude;
+    const lat2=target.lat, lon2=target.lon;
+    const dist = haversine(lat1,lon1,lat2,lon2);
+    const bearing = computeBearing(lat1,lon1,lat2,lon2);
+    tDistVal.textContent = (dist>=1000? (dist/1000).toFixed(2)+' km' : Math.round(dist)+' m');
+    tBearing.textContent = `${Math.round(bearing)}°`;
+    const elevDiff = (typeof target.alt === 'number' && currentPos.coords.altitude !== null) ? (target.alt - currentPos.coords.altitude) : null;
+    tElev.textContent = (elevDiff === null ? '---' : (elevDiff>0? '+' : '') + elevDiff.toFixed(1) + ' m');
+  }
+
+  // Waypoint handling (simple)
+  function refreshWaypointSelect(){
+    waypointSelect.innerHTML = '<option value="">Seleziona waypoint...</option>';
+    waypoints.forEach((w,i)=>{
+      const o = document.createElement('option');
+      o.value = i;
+      o.textContent = `${w.name} (${w.lat.toFixed(4)},${w.lon.toFixed(4)})`;
+      waypointSelect.appendChild(o);
+    });
+  }
+  waypointSelect.addEventListener('change',(e)=>{
+    const idx = e.target.value;
+    if(idx === ''){ target = null; tName.textContent='---'; tCoords.textContent='---'; tDistVal.textContent='-- m'; return; }
+    target = waypoints[parseInt(idx,10)];
+    tName.textContent = target.name;
+    tCoords.textContent = `${target.lat.toFixed(5)}, ${target.lon.toFixed(5)}`;
+    updateNavigation();
+  });
+
+  // modal & CSV parsing basics
+  openLoad.addEventListener('click', ()=>{ modal.classList.add('active'); });
+  closeModal.addEventListener('click', ()=>{ modal.classList.remove('active'); });
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.addEventListener('click', e=>{
+      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+      e.target.classList.add('active');
+      document.getElementById('fileTab').style.display = e.target.dataset.tab === 'file' ? 'block' : 'none';
+      document.getElementById('manualTab').style.display = e.target.dataset.tab === 'manual' ? 'block' : 'none';
+    });
+  });
+
+  csvFile.addEventListener('change', (ev)=>{
+    const f = ev.target.files && ev.target.files[0];
+    if(!f) return;
+    const reader = new FileReader();
+    reader.onload = function(){ parseCSV(reader.result); modal.classList.remove('active'); };
+    reader.readAsText(f);
+  });
+
+  function parseCSV(txt){
+    const lines = txt.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+    let added = 0;
+    lines.forEach(line=>{
+      const cols = line.split(',').map(c=>c.trim());
+      // accept name,lat,lon,alt
+      if(cols.length>=3 && isFinite(cols[1]) && isFinite(cols[2])){
+        const name = cols[0] || 'WP';
+        const lat = parseFloat(cols[1]);
+        const lon = parseFloat(cols[2]);
+        const alt = cols[3] ? parseFloat(cols[3]) : null;
+        waypoints.push({name,lat,lon,alt});
+        added++;
+      } else {
+        // possible UTM format or other: ignored for simplicity
+      }
+    });
+    refreshWaypointSelect();
+    alert('Waypoints caricati: ' + added);
+  }
+
+  // manual add form
+  addManual.addEventListener('click', ()=>{
+    const name = document.getElementById('mName').value || 'WP';
+    const lat = document.getElementById('mLat').value;
+    const lon = document.getElementById('mLon').value;
+    const alt = document.getElementById('mAlt').value;
+    if(!lat || !lon){ alert('Inserisci latitudine e longitudine!'); return; }
+    const latn = parseFloat(lat), lonn = parseFloat(lon);
+    if(isNaN(latn) || isNaN(lonn)){ alert('Lat/Lon non validi'); return; }
+    waypoints.push({name, lat:latn, lon:lonn, alt: alt ? parseFloat(alt) : null});
+    refreshWaypointSelect();
+    modal.classList.remove('active');
+  });
+
+  // export
+  document.getElementById('exportBtn').addEventListener('click', ()=>{
+    if(waypoints.length===0){ alert('Nessun waypoint da esportare'); return; }
+    const lines = waypoints.map(w => `${w.name},${w.lat},${w.lon},${w.alt || ''}`);
+    const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'waypoints.csv'; a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // quick add button
+  document.getElementById('addBtn').addEventListener('click', ()=>{ modal.classList.add('active'); document.querySelector('[data-tab="manual"]').click(); });
+
+  // initial sample waypoints for demo
+  waypoints.push({name:'Casa', lat:40.3515, lon:18.1716, alt:15});
+  waypoints.push({name:'Campo', lat:40.3550, lon:18.1750, alt:12});
+  refreshWaypointSelect();
+
+  // start GPS on load
+  startGeolocation();
+
+  // accessibility & cleanup
+  window.addEventListener('beforeunload', ()=>{
+    if(watchId && navigator.geolocation) navigator.geolocation.clearWatch(watchId);
+    stopOrientationListening();
+  });
+
+  // If device doesn't support DeviceOrientation at all, disable activate button & toggle
+  if(!haveOrientation){
+    activateBtnLabel.textContent = 'Bussola non supportata';
+    activateCompassBtn.disabled = true;
+    compassToggle.disabled = true;
+  } else {
+    // Provide hint: on iOS the top-right button must be tapped before toggling
+    // (we already handle permission in activateCompassBtn)
+  }
+
+})();
+</script>
+</body>
+</html>
