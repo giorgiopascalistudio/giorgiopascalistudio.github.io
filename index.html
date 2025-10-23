@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, minimal-ui">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-fullscreen">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>JSOC Encode - Morse & Binary Converter</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        textarea {
+            -webkit-user-select: text;
+            -khtml-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            user-select: text;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: #111;
+            color: #e0e0e0;
+            min-height: 100vh;
+            background-image: 
+                radial-gradient(circle at 20% 50%, rgba(47, 79, 47, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(255, 215, 0, 0.05) 0%, transparent 50%);
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 10px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            text-align: center;
+            padding: 15px 0;
+            border-bottom: 2px solid #2F4F2F;
+            margin-bottom: 10px;
+        }
+
+        .header h1 {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.8rem;
+            color: #FFD700;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            justify-content: center;
+        }
+
+        .tab-btn {
+            background: #1a1a1a;
+            border: 2px solid #2F4F2F;
+            color: #FFD700;
+            font-family: 'Orbitron', monospace;
+            font-size: 1rem;
+            font-weight: bold;
+            padding: 12px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            flex: 1;
+            max-width: 200px;
+        }
+
+        .tab-btn.active {
+            background: #2F4F2F;
+            border-color: #FFD700;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+        }
+
+        .tab-btn:hover {
+            border-color: #FFD700;
+            transform: translateY(-2px);
+        }
+
+        .tab-content {
+            display: none;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .tab-content.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .converter-card {
+            background: rgba(26, 26, 26, 0.8);
+            border: 2px solid #2F4F2F;
+            border-radius: 12px;
+            padding: 15px;
+            position: relative;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .mode-switch-container {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .mode-switch-btn {
+            background: linear-gradient(135deg, #2F4F2F, #1a4d1a);
+            border: 3px solid #FFD700;
+            color: #FFD700;
+            font-family: 'Orbitron', monospace;
+            font-size: 1.3rem;
+            font-weight: bold;
+            padding: 15px 40px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.2);
+        }
+
+        .mode-switch-btn:hover {
+            background: linear-gradient(135deg, #FFD700, #ffa500);
+            color: #111;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4);
+        }
+
+        .conversion-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .io-container {
+            display: flex;
+            gap: 15px;
+            flex: 1;
+        }
+
+        .input-group {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-label {
+            font-family: 'Orbitron', monospace;
+            color: #FFD700;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .input-textarea {
+            background: #0d0d0d;
+            border: 2px solid #2F4F2F;
+            color: #e0e0e0;
+            font-family: 'Rajdhani', monospace;
+            font-size: 1.1rem;
+            padding: 12px;
+            border-radius: 8px;
+            resize: none;
+            flex: 1;
+            min-height: 120px;
+            transition: all 0.3s ease;
+        }
+
+        .input-textarea:focus {
+            outline: none;
+            border-color: #FFD700;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+        }
+
+        .input-textarea:read-only {
+            background: #0a0a0a;
+            cursor: default;
+        }
+
+        .keypad-container {
+            margin: 10px 0;
+        }
+
+        .keypad-row {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 12px;
+        }
+
+        .keypad-btn {
+            background: #2F4F2F;
+            border: 3px solid #FFD700;
+            color: #FFD700;
+            font-family: 'Orbitron', monospace;
+            font-size: 2rem;
+            font-weight: bold;
+            padding: 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-width: 90px;
+            min-height: 75px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-transform: uppercase;
+            flex: 1;
+            max-width: 150px;
+        }
+
+        .keypad-btn:active {
+            transform: translateY(0) scale(0.95);
+            background: #FFD700;
+            color: #111;
+        }
+
+        .keypad-btn.clear-btn {
+            background: #4a2a2a;
+            border-color: #ff4444;
+            color: #ff4444;
+            font-size: 1rem;
+        }
+
+        .keypad-btn.clear-btn:active {
+            background: #ff4444;
+            color: #fff;
+        }
+
+        .keypad-btn.space-btn {
+            font-size: 1rem;
+        }
+
+        .binary-keypad .keypad-btn {
+            border-color: #00aaff;
+            color: #00aaff;
+            background: #1a2a3a;
+        }
+
+        .binary-keypad .keypad-btn:active {
+            background: #00aaff;
+            color: #111;
+        }
+
+        .convert-btn {
+            background: linear-gradient(135deg, #2F4F2F, #1a4d1a);
+            border: 3px solid #FFD700;
+            color: #FFD700;
+            font-family: 'Orbitron', monospace;
+            font-size: 1.2rem;
+            font-weight: bold;
+            padding: 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 10px;
+        }
+
+        .convert-btn:hover {
+            background: linear-gradient(135deg, #FFD700, #ffa500);
+            color: #111;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.4);
+        }
+
+        .export-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #2F4F2F;
+            border: 2px solid #FFD700;
+            color: #FFD700;
+            font-family: 'Orbitron', monospace;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            z-index: 10;
+        }
+
+        .export-dropdown {
+            display: none;
+            position: absolute;
+            top: 50px;
+            right: 15px;
+            background: #1a1a1a;
+            border: 2px solid #FFD700;
+            border-radius: 6px;
+            overflow: hidden;
+            z-index: 100;
+        }
+
+        .export-dropdown.show {
+            display: block;
+        }
+
+        .export-option {
+            padding: 10px 20px;
+            color: #FFD700;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Rajdhani', sans-serif;
+        }
+
+        .export-option:hover {
+            background: #2F4F2F;
+        }
+
+        .legend-toggle {
+            background: #1a4d1a;
+            border: 2px solid #FFD700;
+            color: #FFD700;
+            font-family: 'Orbitron', monospace;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
+
+        .morse-legend {
+            display: none;
+            background: rgba(47, 79, 47, 0.1);
+            border: 2px solid #2F4F2F;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .morse-legend.show {
+            display: block;
+        }
+
+        .legend-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 10px;
+            background: rgba(26, 26, 26, 0.6);
+            border-radius: 4px;
+            font-family: 'Rajdhani', monospace;
+        }
+
+        .legend-char {
+            color: #FFD700;
+            font-weight: bold;
+        }
+
+        .legend-morse {
+            color: #e0e0e0;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.4rem;
+            }
+
+            .io-container {
+                flex-direction: column;
+            }
+
+            .keypad-btn {
+                font-size: 1.8rem;
+                padding: 18px;
+                min-width: 80px;
+                min-height: 70px;
+            }
+
+            .mode-switch-btn {
+                font-size: 1.1rem;
+                padding: 12px 30px;
+            }
+
+            .input-textarea {
+                min-height: 100px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .keypad-btn {
+                font-size: 1.5rem;
+                padding: 15px;
+                min-width: 70px;
+                min-height: 65px;
+            }
+
+            .keypad-row {
+                gap: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 JSOC ENCODE 🔐</h1>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('morse')" id="tabMorse">MORSE</button>
+            <button class="tab-btn" onclick="switchTab('binary')" id="tabBinary">BINARY</button>
+        </div>
+
+        <!-- MORSE TAB -->
+        <div id="morse" class="tab-content active">
+            <div class="converter-card">
+                <button class="export-btn" onclick="toggleExportDropdown('morse')">📤 EXPORT</button>
+                <div class="export-dropdown" id="morseExportDropdown">
+                    <div class="export-option" onclick="exportData('morse', 'txt')">Export as TXT</div>
+                    <div class="export-option" onclick="exportData('morse', 'json')">Export as JSON</div>
+                </div>
+
+                <button class="legend-toggle" onclick="toggleLegend()">Toggle Morse Legend</button>
+
+                <div class="morse-legend" id="morseLegend">
+                    <div class="legend-grid" id="legendGrid"></div>
+                </div>
+
+                <div class="mode-switch-container">
+                    <button class="mode-switch-btn" onclick="switchMorseMode()" id="morseModeBtn">
+                        MORSE → TEXT
+                    </button>
+                </div>
+
+                <div class="conversion-area">
+                    <div class="io-container">
+                        <div class="input-group">
+                            <label class="input-label" id="morseInputLabel">MORSE INPUT</label>
+                            <textarea class="input-textarea" id="morseInput" placeholder="Enter morse code..."></textarea>
+                        </div>
+                        <div class="input-group">
+                            <label class="input-label" id="morseOutputLabel">TEXT OUTPUT</label>
+                            <textarea class="input-textarea" id="morseOutput" readonly placeholder="Output appears here..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="keypad-container" id="morseKeypad">
+                        <div class="keypad-row">
+                            <button class="keypad-btn" onclick="appendToInput('morse', '.')">.</button>
+                            <button class="keypad-btn" onclick="appendToInput('morse', '-')">-</button>
+                        </div>
+                        <div class="keypad-row">
+                            <button class="keypad-btn space-btn" onclick="appendToInput('morse', ' / ')">SPACE</button>
+                            <button class="keypad-btn clear-btn" onclick="clearInput('morse')">CLEAR</button>
+                        </div>
+                    </div>
+
+                    <button class="convert-btn" onclick="convertMorse()">CONVERT</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- BINARY TAB -->
+        <div id="binary" class="tab-content">
+            <div class="converter-card">
+                <button class="export-btn" onclick="toggleExportDropdown('binary')">📤 EXPORT</button>
+                <div class="export-dropdown" id="binaryExportDropdown">
+                    <div class="export-option" onclick="exportData('binary', 'txt')">Export as TXT</div>
+                    <div class="export-option" onclick="exportData('binary', 'json')">Export as JSON</div>
+                </div>
+
+                <div class="mode-switch-container">
+                    <button class="mode-switch-btn" onclick="switchBinaryMode()" id="binaryModeBtn">
+                        TEXT → BINARY
+                    </button>
+                </div>
+
+                <div class="conversion-area">
+                    <div class="io-container">
+                        <div class="input-group">
+                            <label class="input-label" id="binaryInputLabel">TEXT INPUT</label>
+                            <textarea class="input-textarea" id="binaryInput" placeholder="Enter text..."></textarea>
+                        </div>
+                        <div class="input-group">
+                            <label class="input-label" id="binaryOutputLabel">BINARY OUTPUT</label>
+                            <textarea class="input-textarea" id="binaryOutput" readonly placeholder="Output appears here..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="keypad-container binary-keypad" id="binaryKeypad" style="display: none;">
+                        <div class="keypad-row">
+                            <button class="keypad-btn" onclick="appendToInput('binary', '0')">0</button>
+                            <button class="keypad-btn" onclick="appendToInput('binary', '1')">1</button>
+                        </div>
+                        <div class="keypad-row">
+                            <button class="keypad-btn space-btn" onclick="appendToInput('binary', ' ')">SPACE</button>
+                            <button class="keypad-btn clear-btn" onclick="clearInput('binary')">CLEAR</button>
+                        </div>
+                    </div>
+
+                    <button class="convert-btn" onclick="convertBinary()">CONVERT</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Morse Code Maps
+        const morseCodeMap = {
+            '.-': 'A', '-...': 'B', '-.-.': 'C', '-..': 'D', '.': 'E',
+            '..-.': 'F', '--.': 'G', '....': 'H', '..': 'I', '.---': 'J',
+            '-.-': 'K', '.-..': 'L', '--': 'M', '-.': 'N', '---': 'O',
+            '.--.': 'P', '--.-': 'Q', '.-.': 'R', '...': 'S', '-': 'T',
+            '..-': 'U', '...-': 'V', '.--': 'W', '-..-': 'X', '-.--': 'Y',
+            '--..': 'Z', '.----': '1', '..---': '2', '...--': '3', '....-': '4',
+            '.....': '5', '-....': '6', '--...': '7', '---..': '8', '----.': '9',
+            '-----': '0', '.-.-.-': '.', '--..--': ',', '..--..': '?', '.----.': "'",
+            '-.-.--': '!', '-..-.': '/', '-.--.': '(', '-.--.-': ')', '.-...': '&',
+            '---...': ':', '-.-.-.': ';', '-...-': '=', '.-.-.': '+', '-....-': '-',
+            '..--.-': '_', '.-..-.': '"', '...-..-': '$', '.--.-.': '@'
+        };
+
+        const reverseMorseCodeMap = {};
+        for (let key in morseCodeMap) {
+            reverseMorseCodeMap[morseCodeMap[key]] = key;
+        }
+
+        // State variables
+        let morseMode = 'morse-to-text';
+        let binaryMode = 'text-to-binary';
+
+        // Tab switching
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            document.getElementById(tab).classList.add('active');
+            document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+        }
+
+        // Morse mode switch
+        function switchMorseMode() {
+            const modeBtn = document.getElementById('morseModeBtn');
+            const inputLabel = document.getElementById('morseInputLabel');
+            const outputLabel = document.getElementById('morseOutputLabel');
+            const input = document.getElementById('morseInput');
+            const output = document.getElementById('morseOutput');
+            const keypad = document.getElementById('morseKeypad');
+
+            if (morseMode === 'morse-to-text') {
+                morseMode = 'text-to-morse';
+                modeBtn.textContent = 'TEXT → MORSE';
+                inputLabel.textContent = 'TEXT INPUT';
+                outputLabel.textContent = 'MORSE OUTPUT';
+                input.placeholder = 'Enter text to convert...';
+                output.placeholder = 'Morse code appears here...';
+                keypad.style.display = 'none';
+            } else {
+                morseMode = 'morse-to-text';
+                modeBtn.textContent = 'MORSE → TEXT';
+                inputLabel.textContent = 'MORSE INPUT';
+                outputLabel.textContent = 'TEXT OUTPUT';
+                input.placeholder = 'Enter morse code...';
+                output.placeholder = 'Text appears here...';
+                keypad.style.display = 'block';
+            }
+
+            input.value = '';
+            output.value = '';
+        }
+
+        // Binary mode switch
+        function switchBinaryMode() {
+            const modeBtn = document.getElementById('binaryModeBtn');
+            const inputLabel = document.getElementById('binaryInputLabel');
+            const outputLabel = document.getElementById('binaryOutputLabel');
+            const input = document.getElementById('binaryInput');
+            const output = document.getElementById('binaryOutput');
+            const keypad = document.getElementById('binaryKeypad');
+
+            if (binaryMode === 'text-to-binary') {
+                binaryMode = 'binary-to-text';
+                modeBtn.textContent = 'BINARY → TEXT';
+                inputLabel.textContent = 'BINARY INPUT';
+                outputLabel.textContent = 'TEXT OUTPUT';
+                input.placeholder = 'Enter binary code...';
+                output.placeholder = 'Text appears here...';
+                keypad.style.display = 'block';
+            } else {
+                binaryMode = 'text-to-binary';
+                modeBtn.textContent = 'TEXT → BINARY';
+                inputLabel.textContent = 'TEXT INPUT';
+                outputLabel.textContent = 'BINARY OUTPUT';
+                input.placeholder = 'Enter text to convert...';
+                output.placeholder = 'Binary code appears here...';
+                keypad.style.display = 'none';
+            }
+
+            input.value = '';
+            output.value = '';
+        }
+
+        // Append to input
+        function appendToInput(type, char) {
+            const inputId = type === 'morse' ? 'morseInput' : 'binaryInput';
+            const input = document.getElementById(inputId);
+            input.value += char;
+            input.focus();
+        }
+
+        // Clear input
+        function clearInput(type) {
+            const inputId = type === 'morse' ? 'morseInput' : 'binaryInput';
+            const outputId = type === 'morse' ? 'morseOutput' : 'binaryOutput';
+            document.getElementById(inputId).value = '';
+            document.getElementById(outputId).value = '';
+        }
+
+        // Convert Morse - VERSIONE CORRETTA CON "/" PER GLI SPAZI
+        function convertMorse() {
+            const input = document.getElementById('morseInput').value.trim();
+            const output = document.getElementById('morseOutput');
+
+            try {
+                if (morseMode === 'morse-to-text') {
+                    // Morse → Text
+                    // "/" separa le parole, " " separa le lettere
+                    const words = input.split('/');
+                    const converted = words.map(word => {
+                        const letters = word.trim().split(' ').filter(l => l.length > 0);
+                        return letters.map(code => morseCodeMap[code.trim()] || '?').join('');
+                    }).join(' ');
+                    output.value = converted;
+                } else {
+                    // Text → Morse
+                    // Ogni parola separata da " / ", ogni lettera da " "
+                    const text = input.toUpperCase();
+                    const words = text.split(' ');
+                    const converted = words.map(word => {
+                        return word.split('').map(char => {
+                            return reverseMorseCodeMap[char] || '?';
+                        }).join(' ');
+                    }).join(' / ');
+                    output.value = converted;
+                }
+            } catch (error) {
+                output.value = 'Error: Invalid input';
+            }
+        }
+
+        // Convert Binary
+        function convertBinary() {
+            const input = document.getElementById('binaryInput').value.trim();
+            const output = document.getElementById('binaryOutput');
+
+            try {
+                if (binaryMode === 'text-to-binary') {
+                    const converted = input.split('').map(char => {
+                        return char.charCodeAt(0).toString(2).padStart(8, '0');
+                    }).join(' ');
+                    output.value = converted;
+                } else {
+                    const binaryArray = input.split(/\s+/);
+                    const converted = binaryArray.map(binary => {
+                        const decimal = parseInt(binary, 2);
+                        return String.fromCharCode(decimal);
+                    }).join('');
+                    output.value = converted;
+                }
+            } catch (error) {
+                output.value = 'Error: Invalid input';
+            }
+        }
+
+        // Toggle Legend
+        function toggleLegend() {
+            const legend = document.getElementById('morseLegend');
+            legend.classList.toggle('show');
+
+            if (legend.classList.contains('show') && document.getElementById('legendGrid').children.length === 0) {
+                populateLegend();
+            }
+        }
+
+        function populateLegend() {
+            const grid = document.getElementById('legendGrid');
+            grid.innerHTML = '';
+
+            for (let code in morseCodeMap) {
+                const item = document.createElement('div');
+                item.className = 'legend-item';
+                item.innerHTML = `
+                    <span class="legend-char">${morseCodeMap[code]}</span>
+                    <span class="legend-morse">${code}</span>
+                `;
+                grid.appendChild(item);
+            }
+        }
+
+        // Export functions
+        function toggleExportDropdown(type) {
+            const dropdown = document.getElementById(type + 'ExportDropdown');
+            dropdown.classList.toggle('show');
+
+            const otherType = type === 'morse' ? 'binary' : 'morse';
+            document.getElementById(otherType + 'ExportDropdown').classList.remove('show');
+        }
+
+        function exportData(type, format) {
+            const input = document.getElementById(type + 'Input').value;
+            const output = document.getElementById(type + 'Output').value;
+
+            let content = type.toUpperCase() + ' CONVERSION\n\n';
+            content += 'Input:\n' + input + '\n\n';
+            content += 'Output:\n' + output;
+
+            if (format === 'txt') {
+                downloadFile(content, type + '-conversion.txt', 'text/plain');
+            } else if (format === 'json') {
+                const jsonData = JSON.stringify({
+                    type: type,
+                    input: input,
+                    output: output,
+                    timestamp: new Date().toISOString()
+                }, null, 2);
+                downloadFile(jsonData, type + '-conversion.json', 'application/json');
+            }
+
+            toggleExportDropdown(type);
+        }
+
+        function downloadFile(content, filename, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.export-btn') && !event.target.closest('.export-dropdown')) {
+                document.querySelectorAll('.export-dropdown').forEach(dropdown => {
+                    dropdown.classList.remove('show');
+                });
+            }
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            populateLegend();
+        });
+    </script>
+</body>
+</html>
